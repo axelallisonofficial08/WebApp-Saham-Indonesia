@@ -1,7 +1,8 @@
-# Pasar Hari Ini
+# WebApp Saham Indonesia — Pasar Hari Ini
 
-Web app Python sederhana untuk melihat ringkasan IHSG dan saham pilihan BEI.
-Antarmuka berbahasa Indonesia, dengan pencarian, filter top naik/turun/volume, dan grafik intraday.
+Aplikasi web Python sederhana untuk memantau ringkasan IHSG dan saham pilihan Bursa Efek Indonesia. Data harga diambil dari Yahoo Finance.
+
+Antarmuka berbahasa Indonesia menyediakan pencarian saham, filter saham top naik/turun/volume, grafik intraday, candle 5 menit, dan volume dalam lot (1 lot = 100 saham). Klik kode saham untuk melihat rincian.
 
 ## Menjalankan
 
@@ -9,12 +10,6 @@ Antarmuka berbahasa Indonesia, dengan pencarian, filter top naik/turun/volume, d
 py app.py
 ```
 
-Buka <http://127.0.0.1:5000> di browser. Server mengambil data chart dari Yahoo Finance
-dan menyimpannya dalam cache selama 60 detik. Klik kode saham untuk melihat grafik intraday,
-candle 5 menit, dan volume dalam lot (1 lot = 100 saham). Feed Yahoo saat ini tidak menyediakan
-orderbook atau trade tape per transaksi; tab terkait menjelaskan data yang dibutuhkan.
-Koneksi internet diperlukan untuk kutipan pasar. Jika data tidak tersedia, dashboard menampilkan
-angka contoh yang ditandai jelas.
+Buka <http://127.0.0.1:5000> di browser. Server menyimpan data dalam cache selama 60 detik. Koneksi internet diperlukan untuk mengambil kutipan pasar. Jika data tidak tersedia, dashboard menampilkan angka contoh yang ditandai jelas.
 
-Data pasar Yahoo Finance dapat terlambat dan ketersediaannya bergantung pada sumbernya;
-aplikasi ini bukan layanan transaksi maupun rekomendasi investasi.
+Yahoo Finance tidak menyediakan orderbook atau trade tape per transaksi; tab terkait menjelaskan data yang dibutuhkan untuk fitur tersebut. Data pasar dapat terlambat dan ketersediaannya bergantung pada sumbernya. Aplikasi ini bukan layanan transaksi maupun rekomendasi investasi.
