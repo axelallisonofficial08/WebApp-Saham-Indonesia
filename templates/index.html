@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0f16">
+  <title>Pasar Hari Ini — Saham Indonesia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=5">
+</head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="#"><span class="brand-icon">↗</span><span>pasar<span class="brand-muted">hari ini</span></span></a>
+  <div class="sidebar-label">MENU UTAMA</div>
+  <nav><a class="nav-item active" href="#overview"><span class="nav-icon">◫</span>Ringkasan</a><a class="nav-item" href="#market"><span class="nav-icon">⌁</span>Pasar saham<span class="live-dot"></span></a></nav>
+  <div class="sidebar-label watch-label">PANTAUAN</div>
+  <div class="mini-watch"><span class="watch-symbol">IHSG</span><span>Jakarta Composite</span></div>
+  <div class="mini-watch"><span class="watch-symbol">BBCA</span><span>Bank Central Asia</span></div>
+  <div class="mini-watch"><span class="watch-symbol">BBRI</span><span>Bank Rakyat Indonesia</span></div>
+  <div class="mini-watch"><span class="watch-symbol">TLKM</span><span>Telkom Indonesia</span></div>
+  <div class="sidebar-bottom"><div class="avatar">ID</div><div><b>Pasar Indonesia</b><small>Bursa Efek Indonesia</small></div><span class="more">···</span></div>
+</aside>
+<main id="overview">
+  <header class="topbar"><div class="crumb">Pasar <span>/</span> <b>Ringkasan</b></div><div class="top-actions"><span class="market-state"><i></i><span id="market-state-text">Memuat pasar</span></span><span class="date-pill" id="today">—</span><button class="icon-btn" id="refresh" aria-label="Muat ulang" title="Muat ulang">↻</button></div></header>
+  <div class="content">
+    <section class="welcome"><div><div class="eyebrow"><span class="eyebrow-line"></span>SELAMAT DATANG DI PASAR</div><h1>Pasar saham <span>Indonesia.</span></h1><p>Pantau pergerakan pasar hari ini, dalam satu pandangan.</p></div><div class="update-note"><span class="pulse"></span><span id="updated">Memuat pembaruan…</span></div></section>
+    <section class="index-card" aria-label="Ringkasan IHSG">
+      <div class="index-left"><div class="index-caption"><span class="index-badge">IHSG</span><span>Indeks Harga Saham Gabungan</span></div><div class="index-value" id="index-price">—</div><div class="index-change" id="index-change">—</div><div class="index-meta"><span><small>TERTINGGI</small><b id="index-high">—</b></span><span><small>TERENDAH</small><b id="index-low">—</b></span><span><small>SEBELUMNYA</small><b id="index-prev">—</b></span></div></div>
+      <div class="chart-area"><div class="chart-label"><span>Pergerakan hari ini</span><span class="chart-period">1H · 5M</span></div><svg id="index-chart" viewBox="0 0 700 170" preserveAspectRatio="none" role="img" aria-label="Grafik pergerakan IHSG"></svg><div class="chart-times"><span>09:00</span><span>11:00</span><span>13:00</span><span>15:00</span></div></div>
+      <div class="index-watermark">IDX</div>
+    </section>
+    <section class="stats-grid"><article class="stat-card"><div class="stat-top"><span>SAHAM NAIK</span><span class="stat-icon up">↗</span></div><b id="advancers">—</b><div class="stat-foot"><span class="stat-marker green"></span><span>dari saham terpantau</span></div></article><article class="stat-card"><div class="stat-top"><span>SAHAM TURUN</span><span class="stat-icon down">↘</span></div><b id="decliners">—</b><div class="stat-foot"><span class="stat-marker red"></span><span>dari saham terpantau</span></div></article><article class="stat-card"><div class="stat-top"><span>SAHAM DIPANTAU</span><span class="stat-icon neutral">◈</span></div><b id="total-stocks">—</b><div class="stat-foot"><span class="stat-marker blue"></span><span>saham pilihan BEI</span></div></article><article class="stat-card"><div class="stat-top"><span>STATUS DATA</span><span class="stat-icon neutral">◷</span></div><b class="data-status" id="data-status">—</b><div class="stat-foot"><span class="stat-marker blue"></span><span id="data-source">Memeriksa sumber</span></div></article></section>
+    <section class="market-section" id="market"><div class="section-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>EKUITAS</div><h2>Pantauan saham</h2><p class="section-caption">Klik kode saham untuk detail. Top transaksi diurutkan berdasarkan volume saham hari ini.</p></div><button class="outline-btn" id="see-all">Semua saham <span>↗</span></button></div>
+      <div class="market-panel"><div class="market-toolbar"><div class="tabs" role="tablist"><button class="tab active" data-filter="all">Semua</button><button class="tab" data-filter="gainers">Top naik <span class="tiny-arrow green-text">↗</span></button><button class="tab" data-filter="losers">Top turun <span class="tiny-arrow red-text">↘</span></button><button class="tab" data-filter="volume">Top transaksi <span class="tiny-arrow blue-text">▤</span></button></div><label class="search"><span>⌕</span><input type="search" id="search" placeholder="Cari saham…" aria-label="Cari saham"></label></div>
+      <div class="table-wrap"><table><thead><tr><th>NAMA SAHAM</th><th>HARGA TERAKHIR</th><th>PERUBAHAN</th><th>GRAFIK HARI INI</th><th>TERTINGGI / TERENDAH</th><th>VOLUME</th></tr></thead><tbody id="stock-rows"><tr><td colspan="6" class="loading">Mengambil data pasar…</td></tr></tbody></table></div><div class="table-footer"><span id="row-count">—</span><span id="table-source">Harga dalam rupiah · Data diperbarui berkala</span></div></div>
+    </section>
+    <footer><span id="footer-source">Data pasar bersumber dari Yahoo Finance.</span><span>Data informatif, bukan rekomendasi investasi.</span></footer>
+  </div>
+</main>
+<div class="detail-overlay" id="detail-overlay" hidden>
+  <section class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+    <div class="detail-header"><div><div class="eyebrow"><span class="eyebrow-line"></span>RINCIAN SAHAM</div><h2 id="detail-title">Aktivitas saham</h2><p id="detail-subtitle">Data transaksi per interval</p></div><button class="detail-close" id="detail-close" aria-label="Tutup detail">×</button></div>
+    <div class="detail-stats" id="detail-stats"></div>
+    <div class="detail-tabs" role="tablist"><button class="detail-tab active" data-detail-panel="chart">Grafik</button><button class="detail-tab" data-detail-panel="orderbook">Orderbook</button><button class="detail-tab" data-detail-panel="running">Running Trade</button></div>
+    <section class="detail-pane" id="detail-chart-pane"><div class="stock-chart-card"><div class="stock-chart-heading"><b>Pergerakan harga intraday</b><span>Hari ini · candle 5 menit</span></div><div class="stock-chart-value" id="stock-chart-value">—</div><svg id="stock-chart" viewBox="0 0 1000 230" preserveAspectRatio="none" role="img" aria-label="Grafik harga saham intraday"></svg><div class="stock-chart-times"><span id="stock-chart-start">—</span><span id="stock-chart-end">—</span></div></div>
+      <div class="detail-note"><span>ⓘ</span><span id="detail-note-text">Volume adalah jumlah total pada tiap candle 5 menit. Sumber ini tidak memisahkan lot beli dan lot jual berdasarkan pihak yang memulai transaksi.</span></div>
+      <div class="detail-table-heading"><div><h3>Aktivitas per 5 menit</h3><span>Data tertunda sekitar 10 menit</span></div><span class="detail-count" id="detail-count">—</span></div>
+      <div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>WAKTU</th><th>BUKA</th><th>TERTINGGI</th><th>TERENDAH</th><th>TERAKHIR</th><th>VOLUME (LOT)</th><th>ARAH CANDLE</th></tr></thead><tbody id="detail-rows"></tbody></table></div></section>
+    <section class="detail-pane" id="detail-orderbook-pane" hidden><div class="feed-unavailable"><div class="feed-icon">▥</div><h3>Orderbook belum disediakan feed saat ini</h3><p>Yahoo Finance tidak mengirim antrean harga bid/offer dan lot pada tiap level. Untuk menampilkan orderbook 5-level saham ini, dashboard perlu disambungkan ke feed market depth dari BEI atau broker.</p><div class="book-headings"><span>FREQ</span><span>LOT</span><span>BID</span><span>OFFER</span><span>LOT</span><span>FREQ</span></div><div class="book-empty">Data bid dan offer tidak tersedia dari sumber harga saat ini.</div></div></section>
+    <section class="detail-pane" id="detail-running-pane" hidden><div class="feed-unavailable"><div class="feed-icon">⌁</div><h3>Running trade tidak tersedia dari feed saat ini</h3><p>Yahoo Finance hanya menyediakan candle agregat 5 menit untuk saham ini, bukan catatan setiap transaksi beserta waktu, lot, dan sisi beli/jual. Tabel transaksi berjalan membutuhkan feed transaksi BEI atau broker.</p><div class="running-headings"><span>WAKTU</span><span>KODE</span><span>HARGA</span><span>AKSI</span><span>LOT</span></div><div class="book-empty">Belum ada data running trade yang dapat ditampilkan.</div></div></section>
+    <div class="detail-footer"><span id="detail-source">Yahoo Finance</span><span>1 lot = 100 saham</span></div>
+  </section>
+</div>
+<script src="/static/app.js?v=6"></script>
+</body></html>
