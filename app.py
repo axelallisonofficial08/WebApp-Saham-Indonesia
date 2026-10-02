@@ -1,6 +1,7 @@
 """Dashboard perkembangan saham Indonesia berbasis data Yahoo Finance."""
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,8 +12,13 @@ from urllib.request import Request, urlopen
 import json
 import mimetypes
 import os
+import sqlite3
+import threading
 
 ROOT = Path(__file__).resolve().parent
+DB_PATH = ROOT / "portfolio_demo.sqlite3"
+INITIAL_CASH = 100_000_000
+DB_LOCK = threading.Lock()
 
 WATCHLIST = [
     ("BBCA", "Bank Central Asia"), ("BBRI", "Bank Rakyat Indonesia"),
@@ -24,18 +30,6 @@ WATCHLIST = [
     ("ADRO", "Alamtri Resources Indonesia"), ("BFIN", "BFI Finance"),
     ("PGAS", "Perusahaan Gas Negara"),
 ]
-
-SAMPLE = {
-    "BBCA": (10125, 10075, 10400, 10000, 18200000), "BBRI": (3970, 4020, 4080, 3930, 96200000),
-    "BMRI": (5425, 5350, 5500, 5300, 41300000), "TLKM": (3180, 3210, 3250, 3150, 35600000),
-    "ASII": (5050, 4975, 5100, 4925, 26700000), "GOTO": (72, 70, 74, 69, 2100000000),
-    "ANTM": (1745, 1695, 1780, 1680, 79800000), "BRPT": (1060, 1090, 1115, 1040, 112000000),
-    "BREN": (7350, 7100, 7500, 7000, 9100000), "AMMN": (7650, 7800, 7900, 7525, 12700000),
-    "ICBP": (11100, 11000, 11225, 10900, 3400000), "UNVR": (1880, 1910, 1940, 1855, 48300000),
-    "ADRO": (2440, 2390, 2470, 2360, 52000000), "BFIN": (970, 955, 980, 945, 10500000),
-    "PGAS": (1590, 1575, 1620, 1560, 22100000),
-}
-
 
 def yahoo_chart(symbol):
     """Ambil ringkasan dan candle intraday dari endpoint chart Yahoo Finance."""
@@ -68,16 +62,14 @@ def yahoo_chart(symbol):
         "low": meta.get("regularMarketDayLow") or min(closes),
         "volume": meta.get("regularMarketVolume") or sum(v or 0 for v in quote.get("volume", [])),
         "spark": closes[-30:], "candles": candles, "currency": meta.get("currency", "IDR"),
-        "market_time": meta.get("regularMarketTime"), "is_sample": False,
+        "market_time": meta.get("regularMarketTime"), "is_available": True,
     }
 
 
-def sample_quote(code):
-    price, previous, high, low, volume = SAMPLE[code]
-    return {"price": price, "previous": previous, "change": price - previous,
-            "change_pct": (price / previous - 1) * 100, "high": high, "low": low,
-            "volume": volume, "spark": [], "candles": [], "currency": "IDR", "market_time": None,
-            "is_sample": True}
+def unavailable_quote():
+    return {"price": None, "previous": None, "change": None, "change_pct": None,
+            "high": None, "low": None, "volume": None, "spark": [], "candles": [],
+            "currency": "IDR", "market_time": None, "is_available": False}
 
 
 _cache = {"at": 0, "data": None}
@@ -94,32 +86,137 @@ def market_data():
             try:
                 fetched[code] = job.result(timeout=8)
             except Exception:
-                fetched[code] = sample_quote(code)
+                fetched[code] = unavailable_quote()
     try:
         index = yahoo_chart("^JKSE")
         index["symbol"] = "^JKSE"
     except Exception:
-        index = {"price": 7100.0, "previous": 7050.0, "change": 50.0,
-                 "change_pct": 0.71, "high": 7125.0, "low": 7020.0,
-                 "volume": 0, "spark": [], "currency": "IDR", "market_time": None,
-                 "is_sample": True, "symbol": "^JKSE"}
+        index = {**unavailable_quote(), "symbol": "^JKSE"}
     rows = [{"symbol": code, "name": name, **fetched[code]} for code, name in items]
-    sample_count = sum(bool(q.get("is_sample")) for q in rows) + int(bool(index.get("is_sample")))
-    if sample_count == 0:
+    available_count = sum(bool(q.get("is_available")) for q in rows) + int(bool(index.get("is_available")))
+    if available_count == len(rows) + 1:
         source = "Yahoo Finance · BEI tertunda sekitar 10 menit"
         status = "delayed"
-    elif sample_count == len(rows) + 1:
-        source = "Data contoh · koneksi ke penyedia harga gagal"
-        status = "sample"
+    elif available_count == 0:
+        source = "Yahoo Finance tidak dapat diakses · kutipan belum tersedia"
+        status = "unavailable"
     else:
-        source = f"Yahoo Finance + {sample_count} kutipan contoh · BEI tertunda sekitar 10 menit"
+        source = "Yahoo Finance · sebagian kutipan belum tersedia · BEI tertunda sekitar 10 menit"
         status = "partial"
     data = {"index": index, "stocks": rows, "source": source,
-            "status": status, "sample_count": sample_count,
+            "status": status, "available_count": available_count,
             "updated_at": datetime.now(timezone.utc).isoformat(),
-            "is_sample": sample_count > 0}
+            "is_available": available_count > 0}
     _cache.update(at=time(), data=data)
     return data
+
+
+def db_connect():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+@contextmanager
+def db_session():
+    conn = db_connect()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
+def init_portfolio():
+    with db_session() as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY CHECK(id=1), cash INTEGER NOT NULL)")
+        conn.execute("INSERT OR IGNORE INTO wallet(id, cash) VALUES (1, ?)", (INITIAL_CASH,))
+        conn.execute("""CREATE TABLE IF NOT EXISTS holdings (
+            symbol TEXT PRIMARY KEY, lots INTEGER NOT NULL CHECK(lots >= 0), avg_price REAL NOT NULL CHECK(avg_price >= 0)
+        )""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT NOT NULL, side TEXT NOT NULL CHECK(side IN ('BUY','SELL')),
+            lots INTEGER NOT NULL, price REAL NOT NULL, total INTEGER NOT NULL, created_at TEXT NOT NULL
+        )""")
+
+
+def portfolio_snapshot():
+    market = market_data()
+    quotes = {item["symbol"]: item for item in market["stocks"]}
+    with DB_LOCK, db_session() as conn:
+        cash = conn.execute("SELECT cash FROM wallet WHERE id=1").fetchone()["cash"]
+        holdings = conn.execute("SELECT symbol, lots, avg_price FROM holdings WHERE lots > 0 ORDER BY symbol").fetchall()
+        trades = conn.execute("SELECT id, symbol, side, lots, price, total, created_at FROM trades ORDER BY id DESC LIMIT 100").fetchall()
+    positions = []
+    for row in holdings:
+        quote = quotes.get(row["symbol"])
+        available = bool(quote and quote.get("is_available"))
+        price = quote["price"] if available else None
+        positions.append({"symbol": row["symbol"], "name": quote["name"] if quote else row["symbol"],
+                          "lots": row["lots"], "avg_price": row["avg_price"], "price": price,
+                          "market_value": round(price * row["lots"] * 100) if available else None,
+                          "unrealized": round((price - row["avg_price"]) * row["lots"] * 100) if available else None,
+                          "is_available": available})
+    mark_available = all(p["is_available"] for p in positions)
+    return {"cash": cash, "initial_cash": INITIAL_CASH,
+            "market_value": sum(p["market_value"] for p in positions) if mark_available else None,
+            "mark_available": mark_available, "positions": positions,
+            "trades": [dict(t) for t in trades], "market_status": market["status"]}
+
+
+def execute_trade(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("Data transaksi tidak valid.")
+    symbol = str(payload.get("symbol", "")).upper().strip()
+    side = str(payload.get("side", "")).upper().strip()
+    try:
+        lots = int(payload.get("lots", 0))
+    except (TypeError, ValueError):
+        raise ValueError("Jumlah lot harus berupa bilangan bulat.")
+    names = dict(WATCHLIST)
+    if symbol not in names:
+        raise ValueError("Saham tidak tersedia di daftar pantauan.")
+    if side not in ("BUY", "SELL"):
+        raise ValueError("Pilih beli atau jual.")
+    if lots < 1 or lots > 1_000_000:
+        raise ValueError("Jumlah lot minimal 1 dan maksimal 1.000.000.")
+    quote = next((s for s in market_data()["stocks"] if s["symbol"] == symbol), None)
+    if not quote:
+        raise ValueError("Kutipan harga saham tidak tersedia.")
+    if not quote.get("is_available"):
+        raise ValueError("Kutipan harga nyata tidak tersedia. Transaksi demo hanya bisa dilakukan saat feed pasar berhasil diakses.")
+    price = float(quote["price"])
+    total = int(round(price * lots * 100))
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    with DB_LOCK, db_session() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        cash = conn.execute("SELECT cash FROM wallet WHERE id=1").fetchone()["cash"]
+        holding = conn.execute("SELECT lots, avg_price FROM holdings WHERE symbol=?", (symbol,)).fetchone()
+        owned = holding["lots"] if holding else 0
+        if side == "BUY":
+            if total > cash:
+                raise ValueError(f"Saldo tidak cukup. Dibutuhkan {total:,} rupiah, saldo {cash:,} rupiah.")
+            new_lots = owned + lots
+            avg_price = ((owned * holding["avg_price"] + lots * price) / new_lots) if holding else price
+            conn.execute("UPDATE wallet SET cash=cash-? WHERE id=1", (total,))
+            conn.execute("INSERT INTO holdings(symbol,lots,avg_price) VALUES(?,?,?) ON CONFLICT(symbol) DO UPDATE SET lots=excluded.lots, avg_price=excluded.avg_price",
+                         (symbol, new_lots, avg_price))
+        else:
+            if lots > owned:
+                raise ValueError(f"Lot tidak cukup untuk dijual. Anda memiliki {owned} lot {symbol}.")
+            conn.execute("UPDATE wallet SET cash=cash+? WHERE id=1", (total,))
+            if lots == owned:
+                conn.execute("DELETE FROM holdings WHERE symbol=?", (symbol,))
+            else:
+                conn.execute("UPDATE holdings SET lots=lots-? WHERE symbol=?", (lots, symbol))
+        conn.execute("INSERT INTO trades(symbol,side,lots,price,total,created_at) VALUES(?,?,?,?,?,?)",
+                     (symbol, side, lots, price, total, now))
+    return {"symbol": symbol, "name": names[symbol], "side": side, "lots": lots,
+            "price": price, "total": total, "created_at": now}
+
+
+init_portfolio()
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -132,6 +229,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+        if path == "/api/portfolio":
+            self.send_json(200, portfolio_snapshot())
             return
 
         if path == "/":
@@ -158,6 +258,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def send_json(self, status, data):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        if urlparse(self.path).path != "/api/trade":
+            self.send_error(404)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 1 or length > 10_000:
+                raise ValueError("Permintaan transaksi tidak valid.")
+            payload = json.loads(self.rfile.read(length))
+            trade = execute_trade(payload)
+            self.send_json(200, {"ok": True, "trade": trade, "portfolio": portfolio_snapshot()})
+        except (ValueError, json.JSONDecodeError) as error:
+            self.send_json(400, {"ok": False, "error": str(error)})
 
     def log_message(self, fmt, *args):
         print(f"[{self.log_date_time_string()}] {fmt % args}")

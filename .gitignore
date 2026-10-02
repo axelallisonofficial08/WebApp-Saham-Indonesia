@@ -2,6 +2,9 @@
 .python-deps/
 __pycache__/
 *.py[cod]
+portfolio_demo.sqlite3
+portfolio_demo.sqlite3-shm
+portfolio_demo.sqlite3-wal
 .env
 .env.*
 !.env.example
