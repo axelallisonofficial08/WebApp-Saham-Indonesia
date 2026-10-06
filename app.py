@@ -216,6 +216,33 @@ def execute_trade(payload):
             "price": price, "total": total, "created_at": now}
 
 
+def execute_sell_all():
+    quotes = {item["symbol"]: item for item in market_data()["stocks"]}
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    with DB_LOCK, db_session() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        holdings = conn.execute("SELECT symbol, lots FROM holdings WHERE lots > 0 ORDER BY symbol").fetchall()
+        if not holdings:
+            raise ValueError("Tidak ada saham di dompet untuk dijual.")
+        unavailable = [row["symbol"] for row in holdings
+                       if row["symbol"] not in quotes or not quotes[row["symbol"]].get("is_available")]
+        if unavailable:
+            raise ValueError("Tidak bisa menjual semua: kutipan nyata belum tersedia untuk " + ", ".join(unavailable) + ".")
+        results = []
+        proceeds = 0
+        for row in holdings:
+            quote = quotes[row["symbol"]]
+            price = float(quote["price"])
+            total = int(round(price * row["lots"] * 100))
+            proceeds += total
+            conn.execute("INSERT INTO trades(symbol,side,lots,price,total,created_at) VALUES(?,?,?,?,?,?)",
+                         (row["symbol"], "SELL", row["lots"], price, total, now))
+            results.append({"symbol": row["symbol"], "lots": row["lots"], "price": price, "total": total})
+        conn.execute("UPDATE wallet SET cash=cash+? WHERE id=1", (proceeds,))
+        conn.execute("DELETE FROM holdings WHERE lots > 0")
+    return {"sold": results, "proceeds": proceeds, "created_at": now}
+
+
 init_portfolio()
 
 
@@ -268,7 +295,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/trade":
+        path = urlparse(self.path).path
+        if path == "/api/trade/sell-all":
+            try:
+                result = execute_sell_all()
+                self.send_json(200, {"ok": True, "result": result, "portfolio": portfolio_snapshot()})
+            except ValueError as error:
+                self.send_json(400, {"ok": False, "error": str(error)})
+            return
+        if path != "/api/trade":
             self.send_error(404)
             return
         try:
@@ -287,8 +322,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
-    server = ThreadingHTTPServer(("127.0.0.1", port), DashboardHandler)
-    print(f"Pasar Hari Ini tersedia di http://127.0.0.1:{port}", flush=True)
+    host = os.environ.get("HOST", "0.0.0.0")
+    server = ThreadingHTTPServer((host, port), DashboardHandler)
+    print(f"Pasar Hari Ini tersedia pada {host}:{port}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

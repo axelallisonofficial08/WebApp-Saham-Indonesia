@@ -1,0 +1,86 @@
+name: Update market data and publish GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # IDX session window in WIB (UTC+7), Monday to Friday, plus a closing snapshot.
+    - cron: "*/5 2-8 * * 1-5"
+    - cron: "10 9 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Restore the last published quote snapshot
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --heads origin market-data >/dev/null 2>&1; then
+            git fetch origin market-data
+            git show FETCH_HEAD:data/market.json > data/market.json
+          fi
+
+      - name: Remember the restored snapshot
+        shell: bash
+        run: echo "MARKET_SNAPSHOT_BEFORE=$(sha256sum data/market.json | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Fetch Yahoo Finance quotes and keep the last good values
+        run: python scripts/update_market_snapshot.py
+
+      - name: Save the latest snapshot on its own replaceable branch
+        shell: bash
+        run: |
+          current_hash="$(sha256sum data/market.json | cut -d' ' -f1)"
+          previous_hash="$MARKET_SNAPSHOT_BEFORE"
+          if [ "$current_hash" != "$previous_hash" ]; then
+            cp data/market.json "$RUNNER_TEMP/market.json"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git checkout --orphan market-snapshot
+            git rm -r --cached . >/dev/null 2>&1 || true
+            git add data/market.json
+            git commit -m "Update Yahoo Finance market snapshot"
+            git push --force origin HEAD:market-data
+            git checkout main
+            cp "$RUNNER_TEMP/market.json" data/market.json
+          fi
+
+      - name: Build the static site
+        run: python scripts/build_pages.py
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the site artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _pages_site
+
+      - name: Publish the site
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
+
+      - name: Show the published URL
+        run: echo "Published to ${{ steps.deployment.outputs.page_url }}"

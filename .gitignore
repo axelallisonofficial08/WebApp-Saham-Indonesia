@@ -1,5 +1,6 @@
 .venv/
 .python-deps/
+_pages_site/
 __pycache__/
 *.py[cod]
 portfolio_demo.sqlite3

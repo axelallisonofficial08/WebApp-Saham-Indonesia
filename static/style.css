@@ -92,6 +92,8 @@ h1 span { color: var(--green); }
 .portfolio-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #202a36; }
 .portfolio-panel-head h3 { margin: 0; font: 600 11px var(--head); }
 .portfolio-panel-head span { color: #778594; font-size: 8px; }
+.sell-all-btn { padding: 6px 9px; color: #f08b92; background: #291b21; border: 1px solid #553039; border-radius: 5px; font-size: 8px; cursor: pointer; }
+.sell-all-btn:disabled { opacity: .45; cursor: not-allowed; }
 .portfolio-table-wrap { max-height: 270px; overflow: auto; }
 .history-wrap { max-height: 270px; }
 .portfolio-table { min-width: 590px; }
@@ -192,6 +194,8 @@ footer { display: flex; justify-content: space-between; margin: 16px 2px 0; colo
 .trade-form-title span { margin-top: 4px; color: #788694; font-size: 8px; }
 .trade-form label { display: grid; gap: 5px; color: #8997a5; font-size: 8px; }
 .trade-form input { width: 100%; padding: 8px; color: #e6ecf2; background: #0d141c; border: 1px solid #2b3948; border-radius: 5px; font: 10px var(--mono); }
+.max-lots-btn { align-self: end; min-height: 31px; padding: 7px 9px; color: #9fc3fa; background: #172333; border: 1px solid #304761; border-radius: 5px; font-size: 8px; cursor: pointer; }
+.max-lots-btn:hover { border-color: #5c85b6; }
 .trade-estimate { display: flex; justify-content: space-between; gap: 8px; grid-column: 1 / -1; padding-top: 8px; color: #8896a4; border-top: 1px solid #26323f; font-size: 9px; }
 .trade-estimate b { color: #e3eaf1; font: 500 10px var(--mono); }
 .trade-form-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; grid-column: 1 / -1; }
