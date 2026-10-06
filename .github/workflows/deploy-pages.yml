@@ -57,7 +57,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git checkout --orphan market-snapshot
-            git rm -r --cached . >/dev/null 2>&1 || true
+            git rm -rf --cached . >/dev/null
             git add data/market.json
             git commit -m "Update Yahoo Finance market snapshot"
             git push --force origin HEAD:market-data
@@ -70,6 +70,8 @@ jobs:
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload the site artifact
         uses: actions/upload-pages-artifact@v4
@@ -84,3 +86,4 @@ jobs:
 
       - name: Show the published URL
         run: echo "Published to ${{ steps.deployment.outputs.page_url }}"
+
