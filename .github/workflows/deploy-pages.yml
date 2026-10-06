@@ -61,7 +61,7 @@ jobs:
             git add data/market.json
             git commit -m "Update Yahoo Finance market snapshot"
             git push --force origin HEAD:market-data
-            git checkout main
+            git checkout --force main
             cp "$RUNNER_TEMP/market.json" data/market.json
           fi
 
